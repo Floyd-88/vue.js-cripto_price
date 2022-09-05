@@ -10,7 +10,7 @@
             <div class="mt-1 relative rounded-md shadow-md">
               <input
                   v-model="ticker"
-                  @keydown.enter="addTickers"
+                  @keydown.enter="addTickers(ticker)"
                   type="text"
                   name="wallet"
                   id="wallet"
@@ -18,17 +18,24 @@
                   placeholder="Например DOGE"
               />
             </div>
-            <div class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
+            <div
+                v-if = "filter_name_coins.length"
+                class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
             <span
+                v-for = "(name, idx) in filter_name_coins"
+                :key = "idx"
+                @:click = "addTickers(name)"
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              BTC
+              {{name}}
             </span>
             </div>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+            <div
+                v-if="double"
+                class="text-sm text-red-600">Такой тикер уже добавлен</div>
           </div>
         </div>
         <button
-            @:click="addTickers()"
+            @:click="addTickers(ticker)"
             type="button"
             class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
         >
@@ -151,33 +158,38 @@ export default {
       ticker: "",
       tickers: [],
       graph: null,
-      graph_elem: []
+      graph_elem: [],
+      name_coins: [],
+      filter_name_coins: [],
+      double: null,
     }
   },
   created() {
   let loadLocalStorage = localStorage.getItem("save_tickers")
     this.tickers = JSON.parse(loadLocalStorage)
     this.tickers.map(i => this.loadPriceCoins(i))
+  },
 
+ async mounted() {
+        let response = await fetch("https://min-api.cryptocompare.com/data/all/coinlist?summary=true")
+        let names = await response.json()
+        for(let key in names.Data) {
+          this.name_coins.push(key)
+        }
   },
 
   computed: {
-    doubleTicker() {
-      return this.tickers.some(i => i.name === this.ticker.toUpperCase())
-    },
-
-    normalizeGraph() {
+      normalizeGraph() {
       let max = Math.max(...this.graph_elem)
       let min = Math.min(...this.graph_elem)
       if(max === min) {
         return this.graph_elem.map(()=> 50)
       }
       return this.graph_elem.map(i => 5 + (i - min) * 95 / (max - min))
-    }
+    },
 
   },
   methods: {
-
     loadPriceCoins(newTicker) {
       setInterval(
           async () => {
@@ -188,19 +200,27 @@ export default {
             if(this.graph?.name === newTicker.name) {
            this.graph_elem.push(data.USD)
             }
-
           }
           , 3000)
     },
 
-    addTickers() {
-      if (!this.doubleTicker) {
-        let newTicker = {name: this.ticker.toUpperCase(), price: "-"}
+    addTickers(elem) {
+      if (!this.doubleTicker(elem) && this.doubleCoins(elem)) {
+        let newTicker = {name: elem.toUpperCase(), price: "-"}
         this.tickers = [...this.tickers, newTicker]
         this.loadPriceCoins(newTicker)
 
         this.ticker = ""
+      } else {
+        this.double = true
       }
+    },
+
+    doubleCoins(elem) {
+      return this.name_coins.some(i => i === elem.toUpperCase())
+    },
+    doubleTicker(elem) {
+      return this.tickers.some(i => i.name === elem.toUpperCase())
     },
 
     deleteTicker(elem) {
@@ -218,8 +238,19 @@ export default {
 
   },
   watch: {
+    // doubleTicker() {
+    //
+    // },
+
+    ticker() {
+      this.double = false
+      if(this.ticker.length > 1) {
+        this.filter_name_coins = this.name_coins.filter(i => i.includes(this.ticker.toUpperCase())).splice(0, 4)
+      }
+    },
     tickers() {
       localStorage.setItem("save_tickers", JSON.stringify(this.tickers))
+      this.double = false
     },
 
   graph() {
