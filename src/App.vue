@@ -194,6 +194,14 @@ export default {
     let loadLocalStorage = localStorage.getItem("save_tickers")
     this.tickers = JSON.parse(loadLocalStorage)
     this.tickers.map(i => this.loadPriceCoins(i))
+
+    let get_elements = Object.fromEntries(new URL(window.location).searchParams.entries())
+    if (get_elements.filter_pagination) {
+      this.filter_pagination = get_elements.filter_pagination
+    }
+    if (get_elements.page) {
+      this.page = get_elements.page
+    }
   },
 
   async mounted() {
@@ -217,7 +225,6 @@ export default {
       return this.tickers.filter(i => i.name.includes(this.filter_pagination.toUpperCase())).slice(this.indexStart, this.indexEnd)
     },
 
-
     normalizeGraph() {
       let max = Math.max(...this.graph_elem)
       let min = Math.min(...this.graph_elem)
@@ -227,6 +234,12 @@ export default {
       return this.graph_elem.map(i => 5 + (i - min) * 95 / (max - min))
     },
 
+    filterAndPage() {
+      return {
+        filter_pagination: this.filter_pagination,
+        page: this.page
+      }
+    }
 
   },
   methods: {
@@ -273,7 +286,6 @@ export default {
 
     showGraph(elem) {
       this.graph = elem
-
     },
 
   },
@@ -284,6 +296,7 @@ export default {
         this.filter_name_coins = this.name_coins.filter(i => i.includes(this.ticker.toUpperCase())).splice(0, 4)
       }
     },
+
     tickers() {
       localStorage.setItem("save_tickers", JSON.stringify(this.tickers))
       this.double = false
@@ -294,13 +307,17 @@ export default {
     },
 
     filterTickers() {
-      if(this.filterTickers.length < 1 && this.page > 1) {
+      if (this.filterTickers.length < 1 && this.page > 1) {
         this.page = this.page - 1
       }
     },
 
     filter_pagination() {
       this.page = 1
+    },
+
+    filterAndPage() {
+      history.pushState(null, null, `/?filter_pagination=${this.filter_pagination}&page=${this.page}`)
     }
   }
 }
