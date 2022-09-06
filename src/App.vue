@@ -19,19 +19,20 @@
               />
             </div>
             <div
-                v-if = "filter_name_coins.length"
+                v-if="filter_name_coins.length"
                 class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
             <span
-                v-for = "(name, idx) in filter_name_coins"
-                :key = "idx"
-                @:click = "addTickers(name)"
+                v-for="(name, idx) in filter_name_coins"
+                :key="idx"
+                @:click="addTickers(name)"
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-              {{name}}
+              {{ name }}
             </span>
             </div>
             <div
                 v-if="double"
-                class="text-sm text-red-600">Такой тикер уже добавлен</div>
+                class="text-sm text-red-600">Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
@@ -55,14 +56,37 @@
           Добавить
         </button>
       </section>
+      <hr class="w-full border-t border-gray-600 my-4"/>
+      <div>
+        <span>Фильтрация криптовалюты: </span>
+        <input
+            v-model="filter_pagination"
+            type="text"> <br>
+        <button
+            @:click="page = page - 1"
+            :disabled="page <= 1"
+            type="button"
+            class="my-4 mr-3 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          Назад
+        </button>
+        <button
+            @:click="page = page + 1"
+            :disabled="page >= Math.ceil(tickers.length) / 6"
+            type="button"
+            class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          Вперед
+        </button>
+      </div>
 
       <hr class="w-full border-t border-gray-600 my-4"/>
       <template v-if="tickers.length">
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-              v-for="elem in tickers"
+              v-for="elem in filterTickers"
               :key="elem.name"
-              @click = showGraph(elem)
+              @click=showGraph(elem)
               :class="{
                 'border-4':  graph === elem
               }"
@@ -101,16 +125,16 @@
         <hr class="w-full border-t border-gray-600 my-4"/>
       </template>
       <section
-          v-if = "graph"
-               class="relative">
+          v-if="graph"
+          class="relative">
 
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-          {{graph.name}} - USD
+          {{ graph.name }} - USD
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
           <div
-              v-for = "(bar, idx) in normalizeGraph"
-              :key = "idx"
+              v-for="(bar, idx) in normalizeGraph"
+              :key="idx"
               :style="{
                 'height': `${bar}%`
               }"
@@ -118,7 +142,7 @@
           ></div>
         </div>
         <button
-            @click = "graph = null"
+            @click="graph = null"
             type="button"
             class="absolute top-0 right-0"
         >
@@ -162,43 +186,59 @@ export default {
       name_coins: [],
       filter_name_coins: [],
       double: null,
+      filter_pagination: "",
+      page: 1,
     }
   },
   created() {
-  let loadLocalStorage = localStorage.getItem("save_tickers")
+    let loadLocalStorage = localStorage.getItem("save_tickers")
     this.tickers = JSON.parse(loadLocalStorage)
     this.tickers.map(i => this.loadPriceCoins(i))
   },
 
- async mounted() {
-        let response = await fetch("https://min-api.cryptocompare.com/data/all/coinlist?summary=true")
-        let names = await response.json()
-        for(let key in names.Data) {
-          this.name_coins.push(key)
-        }
+  async mounted() {
+    let response = await fetch("https://min-api.cryptocompare.com/data/all/coinlist?summary=true")
+    let names = await response.json()
+    for (let key in names.Data) {
+      this.name_coins.push(key)
+    }
   },
 
   computed: {
-      normalizeGraph() {
+    indexStart() {
+      return 6 * (this.page - 1)
+    },
+
+    indexEnd() {
+      return 6 * this.page
+    },
+
+    filterTickers() {
+      return this.tickers.filter(i => i.name.includes(this.filter_pagination.toUpperCase())).slice(this.indexStart, this.indexEnd)
+    },
+
+
+    normalizeGraph() {
       let max = Math.max(...this.graph_elem)
       let min = Math.min(...this.graph_elem)
-      if(max === min) {
-        return this.graph_elem.map(()=> 50)
+      if (max === min) {
+        return this.graph_elem.map(() => 50)
       }
       return this.graph_elem.map(i => 5 + (i - min) * 95 / (max - min))
     },
+
 
   },
   methods: {
     loadPriceCoins(newTicker) {
       setInterval(
           async () => {
-            let param = await  fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key=de17c513b59215152bd4fc1a150ae8a440f98184a93654bcbf936560fcec4d0a`)
+            let param = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key=de17c513b59215152bd4fc1a150ae8a440f98184a93654bcbf936560fcec4d0a`)
             let data = await param.json()
-            this.tickers.find(i => i.name === newTicker.name).price = data.USD > 1 ? data.USD.toFixed(2) :data.USD.toPrecision(2)
+            this.tickers.find(i => i.name === newTicker.name).price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
 
-            if(this.graph?.name === newTicker.name) {
-           this.graph_elem.push(data.USD)
+            if (this.graph?.name === newTicker.name) {
+              this.graph_elem.push(data.USD)
             }
           }
           , 3000)
@@ -238,13 +278,9 @@ export default {
 
   },
   watch: {
-    // doubleTicker() {
-    //
-    // },
-
     ticker() {
       this.double = false
-      if(this.ticker.length > 1) {
+      if (this.ticker.length > 1) {
         this.filter_name_coins = this.name_coins.filter(i => i.includes(this.ticker.toUpperCase())).splice(0, 4)
       }
     },
@@ -253,9 +289,19 @@ export default {
       this.double = false
     },
 
-  graph() {
-    this.graph_elem = []
-  },
+    graph() {
+      this.graph_elem = []
+    },
+
+    filterTickers() {
+      if(this.filterTickers.length < 1 && this.page > 1) {
+        this.page = this.page - 1
+      }
+    },
+
+    filter_pagination() {
+      this.page = 1
+    }
   }
 }
 </script>
