@@ -198,7 +198,7 @@ export default {
       this.tickers = JSON.parse(loadLocalStorage)
       this.tickers.forEach(i =>
           subscribeToTicker(i.name, (newPrice) => {
-            this.updateTickers(i.name, newPrice)
+                this.updateTickers(i.name, newPrice)
               }
           ))
     }
@@ -252,7 +252,14 @@ export default {
   },
   methods: {
     updateTickers(tickerName, price) {
-      this.tickers.filter(i => i.name === tickerName).forEach(i => i.price = price)
+      this.tickers
+          .filter(i => i.name === tickerName)
+          .forEach(i => {
+            if (i === this.graph) {
+              this.graph_elem.push(price)
+            }
+            i.price = price
+          })
     },
 
     formatPrice(price) {
@@ -262,17 +269,17 @@ export default {
       return price > 1 ? price.toFixed(2) : price.toPrecision(2)
     },
 
-    async loadPriceCoins() {
-      // if (!this.tickers.length) {
-      //   return
-      // }
-      // let exchangeData = await loadTicker(this.tickers.map(i => i.name))
-      // this.tickers.forEach(ticker => {
-      //       let price = exchangeData[ticker.name.toUpperCase()];
-      //       ticker.price = price ?? "-"
-      //     }
-      // )
-    },
+    // async loadPriceCoins() {
+    // if (!this.tickers.length) {
+    //   return
+    // }
+    // let exchangeData = await loadTicker(this.tickers.map(i => i.name))
+    // this.tickers.forEach(ticker => {
+    //       let price = exchangeData[ticker.name.toUpperCase()];
+    //       ticker.price = price ?? "-"
+    //     }
+    // )
+    // },
 
     addTickers(elem) {
       if (!this.doubleTicker(elem) && this.doubleCoins(elem)) {
