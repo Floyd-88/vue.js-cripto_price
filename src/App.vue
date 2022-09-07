@@ -174,7 +174,7 @@
 </template>
 
 <script>
-import {loadTicker} from "@/api";
+import {subscribeToTicker, unsubscribeToTicker} from "@/api";
 
 
 export default {
@@ -194,9 +194,14 @@ export default {
   },
   created() {
     let loadLocalStorage = localStorage.getItem("save_tickers")
-    this.tickers = JSON.parse(loadLocalStorage)
-    setInterval(this.loadPriceCoins, 3000 )
-
+    if (loadLocalStorage) {
+      this.tickers = JSON.parse(loadLocalStorage)
+      this.tickers.forEach(i =>
+          subscribeToTicker(i.name, (newPrice) => {
+            this.updateTickers(i.name, newPrice)
+              }
+          ))
+    }
 
     let get_elements = Object.fromEntries(new URL(window.location).searchParams.entries())
     if (get_elements.filter_pagination) {
@@ -246,23 +251,27 @@ export default {
 
   },
   methods: {
+    updateTickers(tickerName, price) {
+      this.tickers.filter(i => i.name === tickerName).forEach(i => i.price = price)
+    },
+
     formatPrice(price) {
-      if(price === "-") {
+      if (price === "-") {
         return price
       }
       return price > 1 ? price.toFixed(2) : price.toPrecision(2)
     },
 
     async loadPriceCoins() {
-      if (!this.tickers.length) {
-        return
-      }
-      let exchangeData = await loadTicker(this.tickers.map(i => i.name))
-      this.tickers.forEach(ticker => {
-            let price = exchangeData[ticker.name.toUpperCase()];
-            ticker.price = price ?? "-"
-          }
-      )
+      // if (!this.tickers.length) {
+      //   return
+      // }
+      // let exchangeData = await loadTicker(this.tickers.map(i => i.name))
+      // this.tickers.forEach(ticker => {
+      //       let price = exchangeData[ticker.name.toUpperCase()];
+      //       ticker.price = price ?? "-"
+      //     }
+      // )
     },
 
     addTickers(elem) {
@@ -270,6 +279,9 @@ export default {
         let newTicker = {name: elem.toUpperCase(), price: "-"}
         this.tickers = [...this.tickers, newTicker]
 
+        subscribeToTicker(newTicker.name, (newPrice) => {
+          this.updateTickers(newTicker.name, newPrice)
+        })
         this.ticker = ""
       } else {
         this.double = true
@@ -286,9 +298,9 @@ export default {
     deleteTicker(elem) {
       if (elem) {
         this.tickers = this.tickers.filter(i => i !== elem)
-
         this.graph = null
       }
+      unsubscribeToTicker(elem.name)
     },
 
     showGraph(elem) {
