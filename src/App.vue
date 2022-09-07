@@ -97,7 +97,7 @@
                 {{ elem.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                {{ elem.price }}
+                {{ formatPrice(elem.price) }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -174,6 +174,8 @@
 </template>
 
 <script>
+import {loadTicker} from "@/api";
+
 
 export default {
   name: 'App',
@@ -193,7 +195,8 @@ export default {
   created() {
     let loadLocalStorage = localStorage.getItem("save_tickers")
     this.tickers = JSON.parse(loadLocalStorage)
-    this.tickers.map(i => this.loadPriceCoins(i))
+    setInterval(this.loadPriceCoins, 3000 )
+
 
     let get_elements = Object.fromEntries(new URL(window.location).searchParams.entries())
     if (get_elements.filter_pagination) {
@@ -243,25 +246,29 @@ export default {
 
   },
   methods: {
-    loadPriceCoins(newTicker) {
-      setInterval(
-          async () => {
-            let param = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key=de17c513b59215152bd4fc1a150ae8a440f98184a93654bcbf936560fcec4d0a`)
-            let data = await param.json()
-            this.tickers.find(i => i.name === newTicker.name).price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+    formatPrice(price) {
+      if(price === "-") {
+        return price
+      }
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2)
+    },
 
-            if (this.graph?.name === newTicker.name) {
-              this.graph_elem.push(data.USD)
-            }
+    async loadPriceCoins() {
+      if (!this.tickers.length) {
+        return
+      }
+      let exchangeData = await loadTicker(this.tickers.map(i => i.name))
+      this.tickers.forEach(ticker => {
+            let price = exchangeData[ticker.name.toUpperCase()];
+            ticker.price = price ?? "-"
           }
-          , 3000)
+      )
     },
 
     addTickers(elem) {
       if (!this.doubleTicker(elem) && this.doubleCoins(elem)) {
         let newTicker = {name: elem.toUpperCase(), price: "-"}
         this.tickers = [...this.tickers, newTicker]
-        this.loadPriceCoins(newTicker)
 
         this.ticker = ""
       } else {
